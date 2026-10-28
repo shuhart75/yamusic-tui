@@ -171,7 +171,7 @@ func (m *Model) SetItems(items []*Item) tea.Cmd {
 
 func (m *Model) InsertItem(index int, item *Item) tea.Cmd {
 	if index < 0 {
-		index = len(m.list.Items()) + 1
+		index = len(m.list.Items())
 	}
 	return m.list.InsertItem(index, item)
 }
@@ -185,7 +185,11 @@ func (m *Model) RemoveItem(index int) {
 }
 
 func (m *Model) SelectedItem() *Item {
-	return m.list.SelectedItem().(*Item)
+	item, ok := m.list.SelectedItem().(*Item)
+	if !ok {
+		return ItemEmpty()
+	}
+	return item
 }
 
 func (m *Model) Index() int {

@@ -39,10 +39,6 @@ func (w *readWrapper) NewReader(reader *stream.BufferedStream) {
 }
 
 func (w *readWrapper) Close() {
-	if w.decoder != nil {
-		w.decoder.Seek(0, io.SeekStart)
-	}
-
 	if w.trackBuffer != nil {
 		w.trackBuffer.Close()
 	}

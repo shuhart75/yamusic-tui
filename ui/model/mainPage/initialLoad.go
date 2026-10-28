@@ -320,7 +320,7 @@ func (m *Model) loadUserPlaylists(wg *sync.WaitGroup, block *menuBlock) {
 
 		for i, pl := range playlists {
 			// Only a failed request is an error. A playlist that returned no
-			// tracks is simply empty: list it inactive, like empty likes.
+			// tracks is simply empty, but remains selectable and editable.
 			if playlistErrors[i] != nil {
 				m.tracker.ShowError("playlist tracks")
 				continue
@@ -330,7 +330,7 @@ func (m *Model) loadUserPlaylists(wg *sync.WaitGroup, block *menuBlock) {
 				Name:     pl.Title,
 				Kind:     pl.Kind,
 				Revision: pl.Revision,
-				Active:   len(tracks) > 0,
+				Active:   true,
 				Subitem:  true,
 				Tracks:   tracks,
 			})

@@ -64,11 +64,15 @@ func (m *Model) addPlaylistControl(msg search.Control) tea.Cmd {
 				Subitem:  true,
 			}
 
-			m.playlists.InsertItem(foundPlaylistIndex, foundPlaylist)
-			if foundPlaylistIndex < m.playlists.Index() {
-				m.playlists.Select(m.playlists.Index() + 1)
+			if foundPlaylistIndex < 0 {
+				foundPlaylistIndex = len(playlists)
 			}
-			if m.currentPlaylistIndex >= m.playlists.Index() {
+			selectedIndex := m.playlists.Index()
+			m.playlists.InsertItem(foundPlaylistIndex, foundPlaylist)
+			if foundPlaylistIndex <= selectedIndex {
+				m.playlists.Select(selectedIndex + 1)
+			}
+			if m.currentPlaylistIndex >= foundPlaylistIndex {
 				m.currentPlaylistIndex += 1
 			}
 		}
@@ -142,7 +146,7 @@ func (m *Model) renamePlaylistControl(msg input.Control) tea.Cmd {
 }
 
 func (m *Model) removeFromPlaylist(pl *playlist.Item, index int) tea.Cmd {
-	if index >= len(pl.Tracks) {
+	if index < 0 || index >= len(pl.Tracks) {
 		return nil
 	}
 
@@ -158,24 +162,6 @@ func (m *Model) removeFromPlaylist(pl *playlist.Item, index int) tea.Cmd {
 	default:
 		var cmd tea.Cmd
 
-		if len(pl.Tracks) < 2 {
-			err := m.client.RemovePlaylist(pl.Kind)
-			if err != nil {
-				log.Print(log.LVL_ERROR, "failed to remove playlist [%s]: %s", pl.Name, err)
-				m.tracker.ShowError("playlist remove")
-				return nil
-			}
-			if m.currentPlaylistIndex >= m.playlists.Index() {
-				m.currentPlaylistIndex -= 1
-			}
-			m.playlists.RemoveItem(m.playlists.Index())
-			if len(m.playlists.Items()) <= m.playlists.Index() {
-				m.playlists.Select(0)
-			}
-			m.displayPlaylist(m.playlists.SelectedItem())
-			return nil
-		}
-
 		newpl, err := m.client.RemoveFromPlaylist(pl.Kind, pl.Revision, index)
 		if err != nil {
 			log.Print(log.LVL_ERROR, "failed to remove track [%s] from playlist [%s]: %s", pl.Tracks[index].Id, pl.Name, err)
@@ -185,8 +171,8 @@ func (m *Model) removeFromPlaylist(pl *playlist.Item, index int) tea.Cmd {
 
 		pl.Revision = newpl.Revision
 		pl.Tracks = slices.Delete(pl.Tracks, index, index+1)
-		if index >= len(pl.Tracks) {
-			pl.SelectedTrack = len(pl.Tracks) - 1
+		if index < 0 || index >= len(pl.Tracks) {
+			pl.SelectedTrack = max(0, len(pl.Tracks)-1)
 		} else {
 			pl.SelectedTrack = index
 		}
@@ -220,8 +206,13 @@ func (m *Model) shufflePlaylist(pl *playlist.Item) tea.Cmd {
 
 	currentTrackIndex := pl.CurrentTrack
 	selectedTrackIndex := pl.SelectedTrack
-	currentTrack := pl.Tracks[currentTrackIndex]
-	selectedTrack := pl.Tracks[selectedTrackIndex]
+	if currentTrackIndex < 0 || currentTrackIndex >= len(pl.Tracks) {
+		currentTrackIndex = -1
+	}
+	if selectedTrackIndex < 0 || selectedTrackIndex >= len(pl.Tracks) {
+		selectedTrackIndex = 0
+	}
+	originalCurrent, originalSelected := currentTrackIndex, selectedTrackIndex
 
 	tracks := make([]api.Track, len(pl.Tracks))
 	trackList := make([]tracklist.Item, len(pl.Tracks))
@@ -230,10 +221,10 @@ func (m *Model) shufflePlaylist(pl *playlist.Item) tea.Cmd {
 	for i, v := range perm {
 		tracks[v] = pl.Tracks[i]
 		trackList[v] = tracklist.NewItem(&tracks[v])
-		if currentTrack.Id == tracks[v].Id {
+		if i == originalCurrent {
 			currentTrackIndex = v
 		}
-		if selectedTrackIndex >= 0 && selectedTrack.Id == tracks[v].Id {
+		if i == originalSelected {
 			selectedTrackIndex = v
 		}
 	}

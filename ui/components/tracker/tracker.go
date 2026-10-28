@@ -279,7 +279,10 @@ func (m *Model) Update(message tea.Msg) (*Model, tea.Cmd) {
 
 		case controls.PlayerCache.Contains(keypress):
 			if !m.IsStoped() {
-				m.trackWrapper.trackBuffer.BufferAll()
+				if !m.trackWrapper.trackBuffer.IsBuffered() {
+					m.ShowError("track is still buffering; retry saving shortly")
+					break
+				}
 				cmds = append(cmds, model.Cmd(CACHE_TRACK))
 			}
 
@@ -400,6 +403,8 @@ func (m *Model) Stop() {
 		return
 	}
 
+	// Release any pending decoder read before waiting for the audio player.
+	m.trackWrapper.Close()
 	if m.player.IsPlaying() {
 		m.player.SetVolume(0)
 		m.player.Pause()
@@ -409,7 +414,6 @@ func (m *Model) Stop() {
 		m.ShowError("track buffering")
 	}
 
-	m.trackWrapper.Close()
 	m.player.Close()
 	m.player = nil
 	m.playtime += time.Since(m.playStarted)

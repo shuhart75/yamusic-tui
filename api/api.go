@@ -59,6 +59,9 @@ func nowTimestamp() string {
 }
 
 func proccessRequest[RetT any](req *http.Request) (result RetT, invInfo InvocInfo, err error) {
+	ctx, cancel := context.WithTimeout(req.Context(), 15*time.Second)
+	defer cancel()
+	req = req.WithContext(ctx)
 	req.Header.Add("x-Yandex-Music-Client", "YandexMusicAndroid/24024312")
 	req.Header.Add("User-Agent", "okhttp/4.12.0")
 
@@ -76,7 +79,9 @@ func proccessRequest[RetT any](req *http.Request) (result RetT, invInfo InvocInf
 		}
 
 		dec := json.NewDecoder(resp.Body)
-		dec.Decode(&respBody)
+		if err = dec.Decode(&respBody); err != nil {
+			return
+		}
 
 		invInfo = respBody.InvocationInfo
 		result = respBody.Result
@@ -164,7 +169,7 @@ func postRequestJson[RetT any](token, reqPath string, params url.Values, body an
 	return proccessRequest[RetT](req)
 }
 
-func downloadRequest(token, reqUrl, mimeType string) (body io.ReadCloser, contentLen int64, err error) {
+func metadataDownloadRequest(token, reqUrl, mimeType string) (body io.ReadCloser, contentLen int64, err error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
 	if err != nil {
@@ -261,7 +266,7 @@ func Token(username, password string) (token string, err error) {
 }
 
 func ShareTrackLink(track *Track) string {
-	if len(track.Albums) == 0 {
+	if track == nil || len(track.Albums) == 0 {
 		return ""
 	}
 	return fmt.Sprintf("https://music.yandex.ru/album/%d/track/%s", track.Albums[0].Id, track.Id)
@@ -381,8 +386,11 @@ func (client *YaMusicClient) PlaylistTracks(kind uint64, userId uint64, mixed bo
 		return
 	}
 
-	tracks = make([]Track, 0, playlists[0].TrackCount)
-	for i := 0; i < playlists[0].TrackCount; i++ {
+	if playlists[0].TrackCount != len(playlists[0].Tracks) {
+		return nil, fmt.Errorf("incomplete playlist: expected %d tracks, received %d", playlists[0].TrackCount, len(playlists[0].Tracks))
+	}
+	tracks = make([]Track, 0, len(playlists[0].Tracks))
+	for i := range playlists[0].Tracks {
 		tracks = append(tracks, playlists[0].Tracks[i].Track)
 	}
 
@@ -529,7 +537,7 @@ func (client *YaMusicClient) TrackDownloadInfo(trackId string) (dowInfos []Track
 }
 
 func (client *YaMusicClient) DownloadTrack(dowInfo TrackDownloadInfo) (track io.ReadCloser, fileSize int64, err error) {
-	fullInfoBody, _, err := downloadRequest(client.token, dowInfo.DownloadInfoUrl+"&format=json", "application/json")
+	fullInfoBody, _, err := metadataDownloadRequest(client.token, dowInfo.DownloadInfoUrl+"&format=json", "application/json")
 	if err != nil {
 		return
 	}

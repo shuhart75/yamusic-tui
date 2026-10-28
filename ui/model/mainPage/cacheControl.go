@@ -13,7 +13,7 @@ import (
 
 func (m *Model) cacheCurrentTrack() tea.Cmd {
 	currentTrack := m.tracker.CurrentTrack()
-	if m.tracker.IsStoped() || m.cachedTracksMap[currentTrack.Id] {
+	if m.tracker.IsStoped() || m.cachedTracksMap[currentTrack.Id] || !m.tracker.TrackBuffer().IsBuffered() {
 		return nil
 	}
 
@@ -37,8 +37,18 @@ func (m *Model) cacheCurrentTrack() tea.Cmd {
 
 	tag := id3v2.NewEmptyTag()
 	tag.Reset(metadataFile, id3v2.Options{Parse: true})
-	tag.WriteTo(cacheFile)
-	m.tracker.TrackBuffer().WriteTo(cacheFile)
+	if _, err = tag.WriteTo(cacheFile); err == nil {
+		_, err = m.tracker.TrackBuffer().WriteTo(cacheFile)
+	}
+	if closeErr := cacheFile.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		cache.Remove(currentTrack.Id)
+		log.Print(log.LVL_ERROR, "failed to save cached track: %s", err)
+		m.tracker.ShowError("cache write")
+		return nil
+	}
 
 	m.cachedTracksMap[currentTrack.Id] = true
 	cachePlaylist, index := m.playlists.GetFirst(playlist.LOCAL)

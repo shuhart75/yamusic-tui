@@ -221,6 +221,9 @@ func (m *Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			}
 			selectedTrack := m.tracklist.SelectedItem()
+			if selectedTrack.Track == nil {
+				break
+			}
 			m.searchDialog.Title = "Add " + selectedTrack.Track.Title + " to"
 			m.searchDialog.Action = "add"
 			m.isAddPlaylistActive = true
