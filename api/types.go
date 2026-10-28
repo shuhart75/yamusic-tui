@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -94,9 +95,27 @@ type Tag struct {
 	Value string `json:"value"`
 }
 
+// StringID accepts API identifiers encoded as either strings or JSON numbers.
+// Keep their exact decimal representation, including IDs larger than 2^53.
+type StringID string
+
+func (id *StringID) UnmarshalJSON(data []byte) error {
+	var text string
+	if err := json.Unmarshal(data, &text); err == nil {
+		*id = StringID(text)
+		return nil
+	}
+	var number json.Number
+	if err := json.Unmarshal(data, &number); err != nil {
+		return err
+	}
+	*id = StringID(number.String())
+	return nil
+}
+
 type Label struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
+	Id   StringID `json:"id"`
+	Name string   `json:"name"`
 }
 
 type Artist struct {

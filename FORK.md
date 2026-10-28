@@ -13,6 +13,8 @@ Changes:
 - Truncated downloads retain their received bytes but are not marked complete
   or written to the music cache. Manual save while buffering reports a message
   instead of blocking the UI. Cache write errors are reported.
+- Label IDs accept both string and numeric API encodings without precision loss.
+  This fixes live library/playlist/radio decoding failures.
 - Empty user playlists remain selectable and can receive tracks. Removing the
   final track preserves the playlist. Shuffle handles a removed current track,
   invalid selection and duplicate track IDs without losing the selected entry.

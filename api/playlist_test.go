@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -34,5 +35,21 @@ func TestPlaylistResponseValidation(t *testing.T) {
 				t.Fatalf("err=%v", err)
 			}
 		})
+	}
+}
+
+func TestLabelIDFormats(t *testing.T) {
+	for _, raw := range []string{`{"id":9007199254740993,"name":"label"}`, `{"id":"9007199254740993","name":"label"}`} {
+		var label Label
+		if err := json.Unmarshal([]byte(raw), &label); err != nil {
+			t.Fatal(err)
+		}
+		if label.Id != "9007199254740993" {
+			t.Fatalf("id=%s", label.Id)
+		}
+	}
+	var label Label
+	if err := json.Unmarshal([]byte(`{"id":true}`), &label); err == nil {
+		t.Fatal("boolean ID accepted")
 	}
 }
